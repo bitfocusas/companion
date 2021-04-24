@@ -181,6 +181,7 @@ system.ready = function (logToFile) {
 	var satellite = require('./lib/satellite_server')(system)
 	var ws_api = require('./lib/ws_api')(system)
 	var help = require('./lib/help')(system)
+	var bitfocus_cloud = require('./lib/bitfocus_cloud')(system)
 
 	system.emit('modules_loaded')
 
