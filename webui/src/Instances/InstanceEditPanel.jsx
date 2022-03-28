@@ -200,7 +200,7 @@ function ConfigField({ setValue, setValid, ...props }) {
 		case 'checkbox':
 			return <CheckboxInputField {...props} setValue={setValue2} setValid={setValid2} />
 		case 'dropdown':
-			return <DropdownInputField {...props} setValue={setValue2} setValid={setValid2} />
+			return <DropdownInputField {...props} multiple={definition.multiple} setValue={setValue2} setValid={setValid2} />
 		default:
 			return <p>Unknown field "{definition.type}"</p>
 	}
