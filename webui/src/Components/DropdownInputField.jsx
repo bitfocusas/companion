@@ -49,6 +49,9 @@ export function DropdownInputField({ definition, multiple, value, setValue, setV
 	const isValueValid = useCallback(
 		(newValue) => {
 			if (isMultiple) {
+				if (!(newValue instanceof Array)) {
+					return false
+				}
 				for (const val of newValue) {
 					// Require the selected choices to be valid
 					if (

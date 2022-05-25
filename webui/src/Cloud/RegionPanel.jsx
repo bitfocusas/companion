@@ -1,9 +1,6 @@
 import React, { Component } from 'react'
 import { CSwitch } from '@coreui/react'
 
-// The cloud part is written in old fashioned Class-components
-// because even if the hipsters say it's slow and retarted, i think it's prettier.
-
 const onlineServerStyle = { color: 'green' }
 
 export class CloudRegionPanel extends Component {
@@ -34,7 +31,7 @@ export class CloudRegionPanel extends Component {
 	}
 
 	cloudStateDidUpdate(id, newState) {
-		if (id == this.props.id) {
+		if (id === this.props.id) {
 			console.log(`cloud region ${id} state did update to:`, newState)
 			this.setState({ ...newState })
 		}

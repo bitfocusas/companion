@@ -5,8 +5,8 @@ import { CInput, CButton, CCallout } from '@coreui/react'
 import { CloudRegionPanel } from './RegionPanel'
 import { CloudUserPass } from './UserPass'
 
-// The cloud part is written in old fashioned Class-components because I am most
-// familiar with it
+// The cloud part is written in old fashioned Class-components because I
+// started it that way, and now it's too late. 😇
 
 export class Cloud extends Component {
 	constructor(props) {
