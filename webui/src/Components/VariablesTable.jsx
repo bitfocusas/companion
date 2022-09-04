@@ -1,23 +1,46 @@
-import React, { useCallback, useContext } from 'react'
+import React, { useCallback, useContext, useState } from 'react'
 import { CButton } from '@coreui/react'
-import { StaticContext, VariableDefinitionsContext, VariableValuesContext } from '../util'
+import { socketEmit, StaticContext, VariableDefinitionsContext } from '../util'
 import { CopyToClipboard } from 'react-copy-to-clipboard'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCopy } from '@fortawesome/free-solid-svg-icons'
+import { useEffect } from 'react'
 
 export function VariablesTable({ label }) {
 	const context = useContext(StaticContext)
 	const variableDefinitionsContext = useContext(VariableDefinitionsContext)
-	const variableValuesContext = useContext(VariableValuesContext)
 
-	const variableDefinitions = variableDefinitionsContext[label] || []
-	const variableValues = variableValuesContext || {}
+	const variableDefinitions = variableDefinitionsContext[label] || {}
+	const [variableValues, setVariableValues] = useState({})
+
+	useEffect(() => {
+		if (label) {
+			const doPoll = () => {
+				socketEmit(context.socket, 'variable_values_for_instance', [label])
+					.then(([values]) => {
+						setVariableValues(values || {})
+					})
+					.catch((e) => {
+						setVariableValues({})
+						console.log('Failed to fetch variable values: ', e)
+					})
+			}
+
+			doPoll()
+			const interval = setInterval(doPoll, 1000)
+
+			return () => {
+				setVariableValues({})
+				clearInterval(interval)
+			}
+		}
+	}, [context.socket, label])
 
 	const onCopied = useCallback(() => {
 		context.notifier.current.show(`Copied`, 'Copied to clipboard', 5000)
 	}, [context.notifier])
 
-	if (variableDefinitions.length > 0) {
+	if (Object.keys(variableDefinitions).length > 0) {
 		return (
 			<table className="table table-responsive-sm variables-table">
 				<thead>
@@ -29,8 +52,8 @@ export function VariablesTable({ label }) {
 					</tr>
 				</thead>
 				<tbody>
-					{variableDefinitions.map((variable) => {
-						let value = variableValues[label + ':' + variable.name]
+					{Object.entries(variableDefinitions).map(([name, variable]) => {
+						let value = variableValues[name]
 						if (typeof value !== 'string') {
 							value += ''
 						}
@@ -47,14 +70,14 @@ export function VariablesTable({ label }) {
 						}
 
 						return (
-							<tr key={variable.name}>
+							<tr key={name}>
 								<td>
-									$({label}:{variable.name})
+									$({label}:{name})
 								</td>
 								<td>{variable.label}</td>
 								<td>{elms}</td>
 								<td>
-									<CopyToClipboard text={`$(${label}:${variable.name})`} onCopy={onCopied}>
+									<CopyToClipboard text={`$(${label}:${name})`} onCopy={onCopied}>
 										<CButton size="sm">
 											<FontAwesomeIcon icon={faCopy} />
 										</CButton>
@@ -67,6 +90,6 @@ export function VariablesTable({ label }) {
 			</table>
 		)
 	} else {
-		return <p>Instance has no variables</p>
+		return <p>Connection has no variables</p>
 	}
 }

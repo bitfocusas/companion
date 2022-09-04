@@ -3,12 +3,21 @@ import { faSort, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { NumberInputField } from '../../Components'
-import { ActionsContext, StaticContext, InstancesContext, MyErrorBoundary, socketEmit, sandbox } from '../../util'
+import {
+	ActionsContext,
+	StaticContext,
+	InstancesContext,
+	MyErrorBoundary,
+	socketEmit,
+	sandbox,
+	useMountEffect,
+} from '../../util'
 import update from 'immutability-helper'
-import Select from 'react-select'
+import Select, { createFilter } from 'react-select'
 import { ActionTableRowOption } from './Table'
 import { useDrag, useDrop } from 'react-dnd'
 import { GenericConfirmModal } from '../../Components/GenericConfirmModal'
+import { AddActionsModal } from './AddModal'
 
 export function ActionsPanel({
 	page,
@@ -20,6 +29,7 @@ export function ActionsPanel({
 	orderCommand,
 	setDelay,
 	deleteCommand,
+	learnCommand,
 	addPlaceholder,
 	setLoadStatus,
 	loadStatusKey,
@@ -43,7 +53,31 @@ export function ActionsPanel({
 				setLoadStatus(loadStatusKey, `Failed to load ${loadStatusKey}`)
 				console.error('Failed to load bank actions', e)
 			})
-	}, [context.socket, getCommand, setLoadStatus, loadStatusKey, page, bank, reloadToken])
+
+		const learnHandler = (actionId, actionOptions) => {
+			if (actionId && actionOptions) {
+				setActions((oldActions) => {
+					const index = oldActions.findIndex((a) => a.id === actionId)
+					if (index === -1) {
+						return oldActions
+					} else {
+						const newActions = [...oldActions]
+						newActions[index] = {
+							...newActions[index],
+							options: actionOptions,
+						}
+						return newActions
+					}
+				})
+			}
+		}
+
+		context.socket.on(`${learnCommand}:result`, learnHandler)
+
+		return () => {
+			context.socket.off(`${learnCommand}:result`, learnHandler)
+		}
+	}, [context.socket, getCommand, setLoadStatus, loadStatusKey, page, bank, reloadToken, learnCommand])
 
 	const emitUpdateOption = useCallback(
 		(actionId, key, val) => {
@@ -63,6 +97,13 @@ export function ActionsPanel({
 			context.socket.emit(deleteCommand, page, bank, actionId)
 		},
 		[context.socket, deleteCommand, page, bank]
+	)
+
+	const emitLearn = useCallback(
+		(actionId) => {
+			context.socket.emit(learnCommand, page, bank, actionId)
+		},
+		[context.socket, learnCommand, page, bank]
 	)
 
 	const emitOrder = useCallback(
@@ -89,6 +130,7 @@ export function ActionsPanel({
 		<>
 			<GenericConfirmModal ref={confirmModal} />
 			<ActionsPanelInner
+				isOnBank={true}
 				dragId={dragId}
 				addPlaceholder={addPlaceholder}
 				confirmModal={confirmModal}
@@ -98,6 +140,7 @@ export function ActionsPanel({
 				emitSetDelay={emitSetDelay}
 				emitDelete={emitDelete}
 				emitOrder={emitOrder}
+				emitLearn={emitLearn}
 				addAction={addAction}
 			/>
 		</>
@@ -105,6 +148,7 @@ export function ActionsPanel({
 }
 
 export function ActionsPanelInner({
+	isOnBank,
 	dragId,
 	addPlaceholder,
 	confirmModal,
@@ -114,8 +158,16 @@ export function ActionsPanelInner({
 	emitSetDelay,
 	emitDelete,
 	emitOrder,
+	emitLearn,
 	addAction,
 }) {
+	const addActionsRef = useRef(null)
+	const showAddModal = useCallback(() => {
+		if (addActionsRef.current) {
+			addActionsRef.current.show()
+		}
+	}, [])
+
 	const setValue = useCallback(
 		(actionId, key, val) => {
 			// The server doesn't repond to our change, so we assume it was ok
@@ -207,13 +259,44 @@ export function ActionsPanelInner({
 		[emitOrder, setActions]
 	)
 
+	const [recentActions, setRecentActions] = useState([])
+	useMountEffect(() => {
+		try {
+			// Load from localStorage at startup
+			const recent = JSON.parse(window.localStorage.getItem('recent_actions') || '[]')
+			if (Array.isArray(recent)) {
+				setRecentActions(recent)
+			}
+		} catch (e) {
+			setRecentActions([])
+		}
+	})
+
+	const addAction2 = useCallback(
+		(actionType) => {
+			setRecentActions((existing) => {
+				const newActions = [actionType, ...existing.filter((v) => v !== actionType)].slice(0, 20)
+
+				window.localStorage.setItem('recent_actions', JSON.stringify(newActions))
+
+				return newActions
+			})
+
+			addAction(actionType)
+		},
+		[addAction]
+	)
+
 	return (
 		<>
+			<AddActionsModal ref={addActionsRef} addAction={addAction2} />
+
 			<table className="table action-table">
 				<tbody>
 					{actions.map((a, i) => (
 						<ActionTableRow
 							key={a?.id ?? i}
+							isOnBank={isOnBank}
 							action={a}
 							index={i}
 							dragId={dragId}
@@ -221,26 +304,33 @@ export function ActionsPanelInner({
 							doDelete={doDelete}
 							doDelay={doDelay}
 							moveCard={moveCard}
+							doLearn={emitLearn}
 						/>
 					))}
 				</tbody>
 			</table>
 
-			<AddActionDropdown onSelect={addAction} placeholder={addPlaceholder} />
+			<div className="add-dropdown-wrapper">
+				<AddActionDropdown onSelect={addAction2} placeholder={addPlaceholder} recentActions={recentActions} />
+				<CButton color="primary" variant="outline" onClick={showAddModal}>
+					Browse
+				</CButton>
+			</div>
 		</>
 	)
 }
 
-function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, moveCard }) {
+function ActionTableRow({ action, isOnBank, index, dragId, setValue, doDelete, doDelay, moveCard, doLearn }) {
 	const instancesContext = useContext(InstancesContext)
 	const actionsContext = useContext(ActionsContext)
 
 	const innerDelete = useCallback(() => doDelete(action.id), [action.id, doDelete])
 	const innerDelay = useCallback((delay) => doDelay(action.id, delay), [doDelay, action.id])
+	const innerLearn = useCallback(() => doLearn(action.id), [doLearn, action.id])
 
 	const [optionVisibility, setOptionVisibility] = useState({})
 
-	const actionSpec = actionsContext[action.label]
+	const actionSpec = (actionsContext[action.instance] || {})[action.action]
 
 	const ref = useRef(null)
 	const [, drop] = useDrop({
@@ -299,8 +389,12 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 		const options = actionSpec?.options ?? []
 
 		for (const option of options) {
-			if (typeof option.isVisibleFn === 'string' && typeof option.isVisible !== 'function') {
-				option.isVisible = sandbox(option.isVisibleFn)
+			try {
+				if (typeof option.isVisibleFn === 'string' && typeof option.isVisible !== 'function') {
+					option.isVisible = sandbox(option.isVisibleFn)
+				}
+			} catch (e) {
+				console.error('Failed to process isVisibleFn', e)
 			}
 		}
 	}, [actionSpec])
@@ -314,8 +408,12 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 		}
 
 		for (const option of options) {
-			if (typeof option.isVisible === 'function') {
-				visibility[option.id] = option.isVisible(action)
+			try {
+				if (typeof option.isVisible === 'function') {
+					visibility[option.id] = option.isVisible(action)
+				}
+			} catch (e) {
+				console.error('Failed to check visibility', e)
 			}
 		}
 
@@ -341,8 +439,7 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 	if (actionSpec) {
 		name = `${instanceLabel}: ${actionSpec.label}`
 	} else {
-		const actionId = action.label.split(/:/)[1]
-		name = `${instanceLabel}: ${actionId} (undefined)`
+		name = `${instanceLabel}: ${action.action} (undefined)`
 	}
 
 	return (
@@ -372,6 +469,14 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 						<CButton color="danger" size="sm" onClick={innerDelete} title="Remove action">
 							<FontAwesomeIcon icon={faTrash} />
 						</CButton>
+						&nbsp;
+						{actionSpec?.hasLearn ? (
+							<CButton color="info" size="sm" onClick={innerLearn} title="Capture the current values from the device">
+								Learn
+							</CButton>
+						) : (
+							''
+						)}
 					</div>
 
 					<div className="cell-option">
@@ -379,6 +484,8 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 							{options.map((opt, i) => (
 								<MyErrorBoundary key={i}>
 									<ActionTableRowOption
+										isOnBank={isOnBank}
+										instanceId={action.instance}
 										option={opt}
 										actionId={action.id}
 										value={(action.options || {})[opt.id]}
@@ -396,17 +503,62 @@ function ActionTableRow({ action, index, dragId, setValue, doDelete, doDelay, mo
 	)
 }
 
-function AddActionDropdown({ onSelect, placeholder }) {
+const baseFilter = createFilter()
+const filterOptions = (candidate, input) => {
+	if (input) {
+		return !candidate.data.isRecent && baseFilter(candidate, input)
+	} else {
+		return candidate.data.isRecent
+	}
+}
+
+const noOptionsMessage = ({ inputValue }) => {
+	if (inputValue) {
+		return 'No actions found'
+	} else {
+		return 'No recently used actions'
+	}
+}
+
+function AddActionDropdown({ onSelect, placeholder, recentActions }) {
 	const instancesContext = useContext(InstancesContext)
 	const actionsContext = useContext(ActionsContext)
 
 	const options = useMemo(() => {
-		return Object.entries(actionsContext || {}).map(([id, act]) => {
-			const instanceId = id.split(/:/)[0]
-			const instanceLabel = instancesContext[instanceId]?.label ?? instanceId
-			return { value: id, label: `${instanceLabel}: ${act.label}` }
+		const options = []
+		for (const [instanceId, instanceActions] of Object.entries(actionsContext)) {
+			for (const [actionId, action] of Object.entries(instanceActions || {})) {
+				const instanceLabel = instancesContext[instanceId]?.label ?? instanceId
+				options.push({
+					isRecent: false,
+					value: `${instanceId}:${actionId}`,
+					label: `${instanceLabel}: ${action.label}`,
+				})
+			}
+		}
+
+		const recents = []
+		for (const actionType of recentActions) {
+			if (actionType) {
+				const [instanceId, actionId] = actionType.split(':', 2)
+				const actionInfo = actionsContext[instanceId]?.[actionId]
+				if (actionInfo) {
+					const instanceLabel = instancesContext[instanceId]?.label ?? instanceId
+					recents.push({
+						isRecent: true,
+						value: `${instanceId}:${actionId}`,
+						label: `${instanceLabel}: ${actionInfo.label}`,
+					})
+				}
+			}
+		}
+		options.push({
+			label: 'Recently Used',
+			options: recents,
 		})
-	}, [actionsContext, instancesContext])
+
+		return options
+	}, [actionsContext, instancesContext, recentActions])
 
 	const innerChange = useCallback(
 		(e) => {
@@ -426,6 +578,8 @@ function AddActionDropdown({ onSelect, placeholder }) {
 			placeholder={placeholder}
 			value={null}
 			onChange={innerChange}
+			filterOption={filterOptions}
+			noOptionsMessage={noOptionsMessage}
 		/>
 	)
 }

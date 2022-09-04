@@ -1,5 +1,10 @@
+.dockerignore
 node_modules
 */node_modules
-module-local-dev/*/node_modules
-npm-debug.log
+module-local-dev
+*.log
 electron-output
+webui/build
+.github
+Dockerfile
+.prettier*

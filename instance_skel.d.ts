@@ -13,6 +13,9 @@ import {
 	CompanionActionEventInfo,
 	CompanionFeedbackEventInfo,
 	CompanionBankPNG,
+	CompanionInstanceHTTPRequest,
+	CompanionInstanceHTTPResponse,
+	OSCSomeArguments,
 } from './instance_skel_types'
 
 declare abstract class InstanceSkel<TConfig> {
@@ -145,6 +148,15 @@ declare abstract class InstanceSkel<TConfig> {
 	 */
 	unsubscribeActions(type?: string): void
 
+	/**
+	 * Send an osc message from the system osc sender
+	 * @param host destination ip address
+	 * @param port destination port number
+	 * @param path message path
+	 * @param args mesage arguments
+	 */
+	oscSend(host: string, port: number, path: string, args: OSCSomeArguments): void
+
 	status(level: null | 0 | 1 | 2, message?: string): void
 
 	log(level: 'info' | 'warn' | 'error' | 'debug', info: string): void
@@ -152,6 +164,14 @@ declare abstract class InstanceSkel<TConfig> {
 
 	rgb(red: number, green: number, blue: number): number
 	rgbRev(color: number): { r: number; g: number; b: number }
+
+	/**
+	 * Handle HTTP requests from Companion
+	 * @param request partial request object from Express
+	 */
+	handleHttpRequest?(
+		request: CompanionInstanceHTTPRequest
+	): CompanionInstanceHTTPResponse | Promise<CompanionInstanceHTTPResponse>
 
 	STATUS_UNKNOWN: null
 	STATUS_OK: 0

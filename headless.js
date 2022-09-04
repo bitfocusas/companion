@@ -49,6 +49,14 @@ if (process.argv[3] != null) {
 	port = process.argv[3]
 }
 
+if (process.argv[2] === 'list') {
+	console.log('Found interfaces:')
+	for (var k in ifaces) {
+		console.log(k)
+	}
+	process.exit(0)
+}
+
 if (process.argv[2] in ifaces) {
 	var address
 	var iface = ifaces[process.argv[2]]
@@ -63,6 +71,13 @@ if (process.argv[2] in ifaces) {
 
 	setTimeout(function () {
 		system.emit('skeleton-bind-ip', address)
+		system.emit('skeleton-bind-port', port)
+		system.ready(!process.env.DEVELOPER)
+		console.log('Started')
+	}, 1000)
+} else if (process.argv[2] == '0.0.0.0') {
+	setTimeout(function () {
+		system.emit('skeleton-bind-ip', '0.0.0.0')
 		system.emit('skeleton-bind-port', port)
 		system.ready(!process.env.DEVELOPER)
 		console.log('Started')

@@ -23,10 +23,9 @@ function heading() {
 }
 
 if [ "$MANAGE_NODE_VERSION" ]; then 
+	# This is for older companion-pi installations to manage their node versions
 	# if enabled, then setup n and ensure that the correct version is in use
-	TARGET_VERSION=$(node -p -e "require('./package.json').managed_node_version")
-
-	n install $TARGET_VERSION
+	n install auto
 	n prune
 fi
 
@@ -51,6 +50,7 @@ echo
 
 heading "UI"
 yarn --frozen-lockfile --cwd webui
+echo "Warning: This next step can take many minutes to run"
 yarn --cwd webui build
 echo
 

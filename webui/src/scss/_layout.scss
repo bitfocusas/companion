@@ -44,10 +44,20 @@ body {
 	font-size: 1.3em;
 	margin: 0 auto;
 }
+.header-right {
+	margin-right: 5px;
+}
 
 .choose_instance {
 	width: 45%;
 	float: left;
+}
+
+.login-form {
+	display: grid;
+	grid-auto-flow: column;
+	grid-template-columns: 1fr auto;
+	column-gap: 0.5rem;
 }
 
 .tab-content {
@@ -97,12 +107,26 @@ body {
 .secondary-panel-inner {
 	box-shadow: -15px -0px 25px -20px rgba(0, 0, 0, 0.3);
 
-	overflow-y: hid;
+	overflow-y: hidden;
 }
 
 .secondary-panel {
 	padding-left: 15px;
 	padding-top: 5px;
+
+	display: grid;
+	grid-template-rows: auto 1fr;
+	row-gap: 5px;
+
+	.secondary-panel-header {
+		grid-row: 1;
+		grid-column: 1;
+	}
+
+	.secondary-panel-inner {
+		grid-row: 2;
+		grid-column: 1;
+	}
 }
 
 .secondary-panel .tab-content {
@@ -161,4 +185,8 @@ body {
 code {
 	color: #d50215;
 	font-weight: bold;
+}
+
+.img-max-width img {
+	max-width: 100%;
 }

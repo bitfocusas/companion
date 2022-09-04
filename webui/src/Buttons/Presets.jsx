@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react'
 import { CAlert, CButton, CRow } from '@coreui/react'
-import { StaticContext, InstancesContext, LoadingRetryOrError, socketEmit } from '../util'
+import { StaticContext, InstancesContext, LoadingRetryOrError, socketEmit, myApplyPatch } from '../util'
 import { useDrag } from 'react-dnd'
 import { BankPreview, dataToButtonImage, RedImage } from '../Components/BankButton'
 import shortid from 'shortid'
@@ -34,36 +34,14 @@ export const InstancePresets = function InstancePresets({ resetToken }) {
 				setPresetError('Failed to load presets')
 			})
 
-		const updatePresets = (id, presets) => {
-			setPresetsMap((oldPresets) => {
-				if (oldPresets) {
-					return {
-						...oldPresets,
-						[id]: presets,
-					}
-				} else {
-					return oldPresets
-				}
-			})
-		}
-		const removePresets = (id) => {
-			setPresetsMap((oldPresets) => {
-				if (oldPresets) {
-					const newPresets = { ...oldPresets }
-					delete newPresets[id]
-					return newPresets
-				} else {
-					return oldPresets
-				}
-			})
+		const updatePresets = (id, patch) => {
+			setPresetsMap((oldPresets) => myApplyPatch(oldPresets, id, patch))
 		}
 
-		context.socket.on('presets_update', updatePresets)
-		context.socket.on('presets_delete', removePresets)
+		context.socket.on('instance_presets_patch', updatePresets)
 
 		return () => {
-			context.socket.off('presets_update', updatePresets)
-			context.socket.off('presets_delete', removePresets)
+			context.socket.off('instance_presets_patch', updatePresets)
 		}
 	}, [context.socket, reloadToken])
 
@@ -133,7 +111,7 @@ function PresetsInstanceList({ presets, setInstanceAndCategory }) {
 				layout.
 			</p>
 			{options.length === 0 ? (
-				<CAlert color="info">You have no instances that support presets at the moment.</CAlert>
+				<CAlert color="info">You have no connections that support presets at the moment.</CAlert>
 			) : (
 				options
 			)}
@@ -167,7 +145,7 @@ function PresetsCategoryList({ presets, instance, module, selectedInstanceId, se
 			</h5>
 
 			{buttons.length === 0 ? (
-				<CAlert color="primary">Instance has no presets.</CAlert>
+				<CAlert color="primary">Connection has no presets.</CAlert>
 			) : (
 				<div className="preset-category-grid">{buttons}</div>
 			)}

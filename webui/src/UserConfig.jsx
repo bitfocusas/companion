@@ -1,7 +1,12 @@
 import React, { memo, useCallback, useContext } from 'react'
 import {
+	CAlert,
 	CButton,
 	CCol,
+	CDropdown,
+	CDropdownItem,
+	CDropdownMenu,
+	CDropdownToggle,
 	CInput,
 	CInputCheckbox,
 	CNav,
@@ -14,20 +19,22 @@ import {
 } from '@coreui/react'
 import { MyErrorBoundary, StaticContext, UserConfigContext } from './util'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faFileImport } from '@fortawesome/free-solid-svg-icons'
+import { faFileImport, faSync, faTrash, faUndo } from '@fortawesome/free-solid-svg-icons'
 
 export const UserConfig = memo(function UserConfig() {
 	return (
-		<CRow>
-			<CCol xl={6}>
+		<CRow className="split-panels">
+			<CCol xl={6} className="primary-panel">
 				<h4>Settings</h4>
-				<p>Settings applies instantaneously, don't worry about it!</p>
+				<p>Settings apply instantaneously, don't worry about it!</p>
 
 				<UserConfigTable />
 			</CCol>
 			<CCol xs={12} xl={6} className="secondary-panel">
-				<h4>Remote control</h4>
-				<p>Companion can be remote controlled in several ways. Below you'll find how to do it.</p>
+				<div className="secondary-panel-header">
+					<h4>Remote control</h4>
+					<p>Companion can be remote controlled in several ways. Below you'll find how to do it.</p>
+				</div>
 				<div className="secondary-panel-inner">
 					<RemoteControlInfo />
 				</div>
@@ -48,6 +55,29 @@ function UserConfigTable() {
 		[context.socket]
 	)
 
+	const resetValue = useCallback(
+		(key) => {
+			console.log('reset ', key)
+			context.socket.emit('reset_userconfig_key', key)
+		},
+		[context.socket]
+	)
+
+	const createSslCertificate = useCallback(() => {
+		console.log('create SSL certificate')
+		context.socket.emit('ssl_certificate_create')
+	}, [context.socket])
+
+	const deleteSslCertificate = useCallback(() => {
+		console.log('delete SSL certificate')
+		context.socket.emit('ssl_certificate_delete')
+	}, [context.socket])
+
+	const renewSslCertificate = useCallback(() => {
+		console.log('renew SSL certificate')
+		context.socket.emit('ssl_certificate_renew')
+	}, [context.socket])
+
 	return (
 		<table className="table table-responsive-sm">
 			<thead>
@@ -60,12 +90,12 @@ function UserConfigTable() {
 			<tbody>
 				<tr>
 					<td colSpan="2" className="settings-category">
-						Navigation Buttons
+						Buttons
 					</td>
 				</tr>
 
 				<tr>
-					<td>Flip counting direction on page up/down</td>
+					<td>Flip counting direction on page up/down buttons</td>
 					<td>
 						<div className="form-check form-check-inline mr-1">
 							<CInputCheckbox
@@ -81,7 +111,7 @@ function UserConfigTable() {
 				</tr>
 
 				<tr>
-					<td>Show + and - instead of arrows on page buttons</td>
+					<td>Show + and - instead of arrows on page up/down buttons</td>
 					<td>
 						<div className="form-check form-check-inline mr-1">
 							<CInputCheckbox
@@ -97,13 +127,13 @@ function UserConfigTable() {
 				</tr>
 
 				<tr>
-					<td>Remove the topbar on each button</td>
+					<td>Show the topbar on each button. This can be overridden per-button</td>
 					<td>
 						<div className="form-check form-check-inline mr-1">
 							<CInputCheckbox
 								id="userconfig_remove_topbar"
-								checked={config.remove_topbar}
-								onChange={(e) => setValue('remove_topbar', e.currentTarget.checked)}
+								checked={!config.remove_topbar}
+								onChange={(e) => setValue('remove_topbar', !e.currentTarget.checked)}
 							/>
 							<label className="form-check-label" htmlFor="userconfig_remove_topbar">
 								Enabled
@@ -118,7 +148,7 @@ function UserConfigTable() {
 					</td>
 				</tr>
 				<tr>
-					<td>Enable emulator control for Logitec R400/Mastercue/dSan</td>
+					<td>Enable emulator control for Logitech R400/Mastercue/DSan</td>
 					<td>
 						<div className="form-check form-check-inline mr-1">
 							<CInputCheckbox
@@ -133,7 +163,22 @@ function UserConfigTable() {
 					</td>
 				</tr>
 				<tr>
-					<td>Enable connected xkeys (Companion restart required)</td>
+					<td>Use Elgato Plugin for StreamDeck access (Requires Companion restart)</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInputCheckbox
+								id="userconfig_elgato_plugin_enable"
+								checked={config.elgato_plugin_enable}
+								onChange={(e) => setValue('elgato_plugin_enable', e.currentTarget.checked)}
+							/>
+							<label className="form-check-label" htmlFor="userconfig_elgato_plugin_enable">
+								Enabled
+							</label>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>Enable connected xkeys (Requires Companion restart)</td>
 					<td>
 						<div className="form-check form-check-inline mr-1">
 							<CInputCheckbox
@@ -391,6 +436,276 @@ function UserConfigTable() {
 						</div>
 					</td>
 				</tr>
+
+				<tr>
+					<td colSpan="2" className="settings-category">
+						Admin UI Password
+					</td>
+				</tr>
+				<tr>
+					<td colSpan="2">
+						<CAlert color="danger">
+							This does not make an installation secure!
+							<br /> This is intended to keep normal users from stumbling upon the settings and changing things. It will
+							not keep out someone determined to bypass it.
+						</CAlert>
+					</td>
+				</tr>
+				<tr>
+					<td>Enable Locking</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInputCheckbox
+								checked={config.admin_lockout}
+								onChange={(e) => setValue('admin_lockout', e.currentTarget.checked)}
+							/>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>Session Timeout (minutes, 0 for no timeout)</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInput
+								type="number"
+								value={config.admin_timeout}
+								min={0}
+								step={1}
+								onChange={(e) => setValue('admin_timeout', e.currentTarget.value)}
+							/>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>Password</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInput
+								type="text"
+								value={config.admin_password}
+								onChange={(e) => setValue('admin_password', e.currentTarget.value)}
+							/>
+						</div>
+					</td>
+				</tr>
+
+				<tr>
+					<td colSpan="2" className="settings-category">
+						HTTPS Web Server
+					</td>
+				</tr>
+				<tr>
+					<td colSpan="2">
+						<p>An HTTPS server can be enabled for the Companion web interfaces should your deployment require it.</p>
+						<CAlert color="danger">
+							It is never recommended to expose the Companion interface to the Internet and HTTPS does not provide any
+							additional security for that configuration.
+						</CAlert>
+					</td>
+				</tr>
+				<tr>
+					<td>HTTPS Web Server</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInputCheckbox
+								id="userconfig_https_enabled"
+								checked={config.https_enabled}
+								onChange={(e) => setValue('https_enabled', e.currentTarget.checked)}
+							/>
+							<label className="form-check-label" htmlFor="userconfig_https_enabled">
+								Enabled
+							</label>
+						</div>
+					</td>
+				</tr>
+
+				<tr>
+					<td>HTTPS Port</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CInput
+								type="number"
+								value={config.https_port}
+								onChange={(e) => setValue('https_port', e.currentTarget.value)}
+							/>
+						</div>
+					</td>
+				</tr>
+
+				<tr>
+					<td>Certificate Type</td>
+					<td>
+						<div className="form-check form-check-inline mr-1">
+							<CDropdown className="mt-2" style={{ display: 'inline-block' }}>
+								<CDropdownToggle>{config.https_cert_type === 'external' ? 'External' : 'Self Signed'}</CDropdownToggle>
+								<CDropdownMenu>
+									<CDropdownItem onClick={() => setValue('https_cert_type', 'self')}>Self Signed</CDropdownItem>
+									<CDropdownItem onClick={() => setValue('https_cert_type', 'external')}>External</CDropdownItem>
+								</CDropdownMenu>
+							</CDropdown>
+						</div>
+					</td>
+				</tr>
+
+				{config.https_cert_type === 'self' && (
+					<tr>
+						<td colSpan="2">
+							<table className="table table-responsive-sm">
+								<tbody>
+									<tr>
+										<td colSpan="2">This tool will help create a self-signed certificate for the server to use.</td>
+									</tr>
+
+									<tr>
+										<td>Common Name (Domain Name)</td>
+										<td>
+											<div className="form-check form-check-inline mr-1">
+												<CInput
+													type="text"
+													value={config.https_self_cn}
+													onChange={(e) => setValue('https_self_cn', e.currentTarget.value)}
+												/>
+												<CButton onClick={() => resetValue('https_self_cn')} title="Reset">
+													<FontAwesomeIcon icon={faUndo} />
+												</CButton>
+											</div>
+										</td>
+									</tr>
+									<tr>
+										<td>Certificate Expiry Days</td>
+										<td>
+											<div className="form-check form-check-inline mr-1">
+												<CInput
+													type="number"
+													value={config.https_self_expiry}
+													onChange={(e) => setValue('https_self_expiry', e.currentTarget.value)}
+												/>
+												<CButton onClick={() => resetValue('https_self_expiry')} title="Reset">
+													<FontAwesomeIcon icon={faUndo} />
+												</CButton>
+											</div>
+										</td>
+									</tr>
+
+									{(!config.https_self_cert || config.https_self_cert.length === 0) && (
+										<tr>
+											<td>
+												Certificate Details
+												<br />
+												{(!config.https_self_cert || config.https_self_cert.length === 0) && (
+													<ul>
+														<li>No certificate available</li>
+													</ul>
+												)}
+											</td>
+											<td>
+												<CButton onClick={() => createSslCertificate()} color="success">
+													<FontAwesomeIcon icon={faSync} />
+													&nbsp;Generate
+												</CButton>
+											</td>
+										</tr>
+									)}
+									{config.https_self_cert && config.https_self_cert.length > 0 && (
+										<tr>
+											<td>
+												Certificate Details
+												<br />
+												{config.https_self_cert && config.https_self_cert.length > 0 && (
+													<ul>
+														<li>Common Name: {config.https_self_cert_cn}</li>
+														<li>Created: {config.https_self_cert_created}</li>
+														<li>Expiry Period: {config.https_self_cert_expiry}</li>
+													</ul>
+												)}
+											</td>
+											<td>
+												<p>
+													<CButton onClick={() => renewSslCertificate()} color="success">
+														<FontAwesomeIcon icon={faSync} />
+														&nbsp;Renew
+													</CButton>
+												</p>
+												<p>
+													<CButton onClick={() => deleteSslCertificate()} color="danger">
+														<FontAwesomeIcon icon={faTrash} />
+														&nbsp;Delete
+													</CButton>
+												</p>
+											</td>
+										</tr>
+									)}
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				)}
+
+				{config.https_cert_type === 'external' && (
+					<tr>
+						<td colSpan="2">
+							<table className="table table-responsive-sm">
+								<tbody>
+									<tr>
+										<td colSpan="2">
+											<p>
+												This requires you to generate your own self-signed certificate or go through a certificate
+												authority. A properly signed certificate will work.
+											</p>
+											<CAlert color="danger">
+												This option is provided as-is. Support will not be provided for this feature. <br />
+												DO NOT POST GITHUB ISSUES IF THIS DOES NOT WORK.
+											</CAlert>
+										</td>
+									</tr>
+
+									<tr>
+										<td>Private Key File (full path)</td>
+										<td>
+											<div className="form-check form-check-inline mr-1">
+												<CInput
+													type="text"
+													value={config.https_ext_private_key}
+													onChange={(e) => setValue('https_ext_private_key', e.currentTarget.value)}
+												/>
+											</div>
+										</td>
+									</tr>
+
+									<tr>
+										<td>Certificate File (full path)</td>
+										<td>
+											<div className="form-check form-check-inline mr-1">
+												<CInput
+													type="text"
+													value={config.https_ext_certificate}
+													onChange={(e) => setValue('https_ext_certificate', e.currentTarget.value)}
+												/>
+											</div>
+										</td>
+									</tr>
+
+									<tr>
+										<td>
+											Chain File (full path)
+											<br />
+											*Optional
+										</td>
+										<td>
+											<div className="form-check form-check-inline mr-1">
+												<CInput
+													type="text"
+													value={config.https_ext_chain}
+													onChange={(e) => setValue('https_ext_chain', e.currentTarget.value)}
+												/>
+											</div>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				)}
 			</tbody>
 		</table>
 	)
@@ -489,6 +804,16 @@ function RemoteControlInfo() {
 									<br />
 									<i>Change background color on a button (#000000)</i>
 								</li>
+								<li>
+									<code>CUSTOM-VARIABLE</code> &lt;name&gt; <code>SET-VALUE</code> &lt;value&gt;
+									<br />
+									<i>Change custom variable value</i>
+								</li>
+								<li>
+									<code>RESCAN</code>
+									<br />
+									<i>Make Companion rescan for newly attached USB surfaces</i>
+								</li>
 							</ul>
 
 							<p>
@@ -502,9 +827,15 @@ function RemoteControlInfo() {
 							</p>
 
 							<p>
-								Press page 1 bank 2
+								Press page 1 button 2
 								<br />
 								<code>BANK-PRESS 1 2</code>
+							</p>
+
+							<p>
+								Change custom variable &quot;cue&quot; to value &quot;intro&quot;
+								<br />
+								<code>CUSTOM-VARIABLE cue SET-VALUE intro</code>
 							</p>
 						</MyErrorBoundary>
 					</CTabPane>
@@ -545,6 +876,16 @@ function RemoteControlInfo() {
 										<br />
 										<i>Change text size on a button (between the predefined values)</i>
 									</li>
+									<li>
+										<code>/api/custom-variable/</code>&lt;name&gt;<code>?value=</code>&lt;value&gt;
+										<br />
+										<i>Change custom variable value</i>
+									</li>
+									<li>
+										<code>/rescan</code>
+										<br />
+										<i>Make Companion rescan for newly attached USB surfaces</i>
+									</li>
 								</ul>
 							</p>
 
@@ -553,7 +894,7 @@ function RemoteControlInfo() {
 							</p>
 
 							<p>
-								Press page 1 bank 2
+								Press page 1 button 2
 								<br />
 								<code>/press/bank/1/2</code>
 							</p>
@@ -569,6 +910,12 @@ function RemoteControlInfo() {
 								font size to 28px
 								<br />
 								<code>/style/bank/2/4/?text=TEST&bgcolor=%23ffffff&color=%23000000&size=28px</code>
+							</p>
+
+							<p>
+								Change custom variable &quot;cue&quot; to value &quot;intro&quot;
+								<br />
+								<code>/api/custom-variable/cue?value=intro</code>
 							</p>
 						</MyErrorBoundary>
 					</CTabPane>
@@ -588,36 +935,46 @@ function RemoteControlInfo() {
 							</p>
 							<ul>
 								<li>
-									<code>/press/bank/</code>&lt;page&gt; &lt;bank&gt;
+									<code>/press/bank/</code>&lt;page&gt;<code>/</code>&lt;bank&gt;
 									<br />
 									<i>Press and release a button (run both down and up actions)</i>
 								</li>
 								<li>
-									<code>/press/bank/</code> &lt;page&gt; &lt;bank&gt; &lt;1&gt;
+									<code>/press/bank/</code>&lt;page&gt;<code>/</code>&lt;bank&gt; &lt;1&gt;
 									<br />
 									<i>Press the button (run down actions and hold)</i>
 								</li>
 								<li>
-									<code>/press/bank/</code> &lt;page&gt; &lt;bank&gt; &lt;0&gt;
+									<code>/press/bank/</code>&lt;page&gt;<code>/</code>&lt;bank&gt; &lt;0&gt;
 									<br />
 									<i>Release the button (run up actions)</i>
 								</li>
 								<li>
-									<code>/style/bgcolor/</code> &lt;page&gt; &lt;bank&gt; &lt;red 0-255&gt; &lt;green 0-255&gt; &lt;blue
-									0-255&gt;
+									<code>/style/bgcolor/</code>&lt;page&gt;<code>/</code>&lt;bank&gt; &lt;red 0-255&gt; &lt;green
+									0-255&gt; &lt;blue 0-255&gt;
 									<br />
 									<i>Change background color of button</i>
 								</li>
 								<li>
-									<code>/style/color/</code> &lt;page&gt; &lt;bank&gt; &lt;red 0-255&gt; &lt;green 0-255&gt; &lt;blue
-									0-255&gt;
+									<code>/style/color/</code>&lt;page&gt;<code>/</code>&lt;bank&gt; &lt;red 0-255&gt; &lt;green 0-255&gt;
+									&lt;blue 0-255&gt;
 									<br />
 									<i>Change color of text on button</i>
 								</li>
 								<li>
-									<code>/style/text/</code> &lt;page&gt; &lt;bank&gt; &lt;text&gt;
+									<code>/style/text/</code>&lt;page&gt;<code>/</code>&lt;bank&gt; &lt;text&gt;
 									<br />
 									<i>Change text on a button</i>
+								</li>
+								<li>
+									<code>/custom-variable/</code>&lt;name&gt;<code>/value</code> &lt;value&gt;
+									<br />
+									<i>Change custom variable value</i>
+								</li>
+								<li>
+									<code>/rescan</code> 1
+									<br />
+									<i>Make Companion rescan for newly attached USB surfaces</i>
 								</li>
 							</ul>
 
@@ -642,10 +999,21 @@ function RemoteControlInfo() {
 								<br />
 								<code>/style/text/1/5 ONLINE</code>
 							</p>
+
+							<p>
+								Change custom variable &quot;cue&quot; to value &quot;intro&quot;
+								<br />
+								<code>/custom-variable/cue/value intro</code>
+							</p>
 						</MyErrorBoundary>
 					</CTabPane>
 					<CTabPane data-tab="artnet">
 						<MyErrorBoundary>
+							<p>
+								<CButton color="success" href="/Bitfocus_Companion_v20.d4" target="_new">
+									<FontAwesomeIcon icon={faFileImport} /> Download Avolites Fixture file (v2.0)
+								</CButton>
+							</p>
 							<p>
 								<CButton color="success" href="/bitfocus@companion_v2.0@00.xml" target="_new">
 									<FontAwesomeIcon icon={faFileImport} /> Download GrandMA2 Fixture file (v2.0)

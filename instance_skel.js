@@ -46,6 +46,10 @@ function instance(system, id, config) {
 		'REGEX_IP',
 		'/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/'
 	)
+	self.defineConst(
+		'REGEX_HOSTNAME',
+		'/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9])$/'
+	)
 	self.defineConst('REGEX_BOOLEAN', '/^(true|false|0|1)$/i')
 	self.defineConst(
 		'REGEX_PORT',
@@ -189,6 +193,7 @@ instance.prototype.setActions = function (actions) {
 				if (action && action.options) {
 					action.options = serializeIsVisibleFn(action.options)
 				}
+				if (action?.learn) action.hasLearn = true
 				return [id, action]
 			})
 		)
@@ -242,6 +247,7 @@ instance.prototype.setFeedbackDefinitions = function (feedbacks) {
 				if (feedback && feedback.options) {
 					feedback.options = serializeIsVisibleFn(feedback.options)
 				}
+				if (feedback?.learn) feedback.hasLearn = true
 				return [id, feedback]
 			})
 		)
@@ -417,6 +423,11 @@ instance.prototype.unsubscribeActions = function (type) {
 			}
 		}
 	}
+}
+
+instance.prototype.oscSend = function (host, port, path, args) {
+	var self = this
+	self.system.emit('osc_send', host, port, path, args)
 }
 
 instance.extendedBy = function (module) {

@@ -4,6 +4,8 @@ import { CAlert, CButton, CCol } from '@coreui/react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { PRIMARY_COLOR } from './Constants'
 import { BarLoader } from 'react-spinners'
+import { applyPatch } from 'fast-json-patch'
+import _ from 'lodash'
 
 export const SERVER_URL = window.SERVER_URL === '%REACT_APP_SERVER_URL%' ? undefined : window.SERVER_URL
 
@@ -14,9 +16,11 @@ export const ActionsContext = React.createContext(null)
 export const FeedbacksContext = React.createContext(null)
 export const InstancesContext = React.createContext(null)
 export const VariableDefinitionsContext = React.createContext(null)
-export const VariableValuesContext = React.createContext(null)
 export const CustomVariableDefinitionsContext = React.createContext(null)
 export const UserConfigContext = React.createContext(null)
+export const SurfacesContext = React.createContext(null)
+export const PagesContext = React.createContext(null)
+export const TriggersContext = React.createContext(null)
 
 export function socketEmit(socket, name, args, timeout, timeoutMessage) {
 	const p = new Promise((resolve, reject) => {
@@ -110,7 +114,7 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 	return (
 		<CAlert color="danger">
 			<p>Something went wrong:</p>
-			<pre>{error.message}</pre>
+			<pre>{error?.message ?? ''}</pre>
 			<CButton color="primary" size="sm" onClick={resetErrorBoundary}>
 				Try again
 			</CButton>
@@ -174,4 +178,36 @@ export function LoadingRetryOrError({ error, dataReady, doRetry }) {
 			)}
 		</>
 	)
+}
+
+export function myApplyPatch(oldDefinitions, key, patch) {
+	if (oldDefinitions) {
+		const oldEntry = oldDefinitions[key] ?? {}
+
+		const newDefinitions = { ...oldDefinitions }
+		if (!patch) {
+			delete newDefinitions[key]
+		} else if (Array.isArray(patch)) {
+			// If its an array we assume it is a patch
+			newDefinitions[key] = applyPatch(_.cloneDeep(oldEntry), patch).newDocument
+		} else {
+			// If its any other type, then its not a patch and is likely a complete value
+			newDefinitions[key] = patch
+		}
+
+		return newDefinitions
+	} else {
+		return oldDefinitions
+	}
+}
+export function myApplyPatch2(oldObj, patch) {
+	const oldEntry = oldObj ?? {}
+
+	if (Array.isArray(patch)) {
+		// If its an array we assume it is a patch
+		return applyPatch(_.cloneDeep(oldEntry), patch).newDocument
+	} else {
+		// If its any other type, then its not a patch and is likely a complete value
+		return patch
+	}
 }
